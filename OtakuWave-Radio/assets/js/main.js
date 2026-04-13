@@ -58,10 +58,12 @@ function escapeHtml(text) {
 }
 
 /* ──────────────────────────────────────
-   LOAD TRACK
+   LOAD TRACK (CORREGIDO Y ESTABLE)
 ────────────────────────────────────── */
 function loadTrack(index) {
-  const track = TRACKS[index];
+  if (!TRACKS.length) return;
+
+  const track = TRACKS[index % TRACKS.length];
   if (!track) return;
 
   if (audioElement) {
@@ -71,16 +73,46 @@ function loadTrack(index) {
   }
 
   audioElement = new Audio(track.file);
+
+  // 🧯 MANEJO DE ERROR (CRÍTICO PARA VERCEL)
+  audioElement.onerror = () => {
+    console.warn("Error cargando audio:", track.file);
+    nextTrack(); // evita que se rompa el reproductor
+  };
+
   audioElement.addEventListener('timeupdate', updateProgress);
   audioElement.addEventListener('ended', onTrackEnd);
+
   audioElement.addEventListener('loadedmetadata', () => {
-    DOM.duration().textContent = formatTime(audioElement.duration);
+    if (DOM.duration()) {
+      DOM.duration().textContent = formatTime(audioElement.duration);
+    }
   });
 
   if (DOM.volSlider()) {
     audioElement.volume = DOM.volSlider().value / 100;
   }
 
+  // 🧩 ACTUALIZACIÓN UI (segura)
+  if (DOM.section()) DOM.section().textContent = track.section;
+  if (DOM.track()) DOM.track().textContent = track.track;
+  if (DOM.anime()) DOM.anime().textContent = track.anime;
+
+  const img = DOM.artImg();
+  if (img) {
+    img.src = `assets/images/avatar_${track.art}.png`;
+  }
+
+  if (DOM.fill()) DOM.fill().style.width = '0%';
+  if (DOM.elapsed()) DOM.elapsed().textContent = '0:00';
+
+  if (isPlaying) {
+    audioElement.play().catch(err => {
+      console.warn("Error al reproducir:", err);
+    });
+    startWaveAnimation();
+  }
+}
   DOM.section().textContent = track.section;
   DOM.track().textContent = track.track;
   DOM.anime().textContent = track.anime;
